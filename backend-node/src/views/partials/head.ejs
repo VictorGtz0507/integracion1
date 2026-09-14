@@ -1,0 +1,2 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%= title %> | Lumen</title><link rel="stylesheet" href="/app.css"></head><body><header class="topbar"><a class="brand" href="/">LUMEN<span>/</span>LIBROS</a><nav><a href="/">Catálogo</a><% if (user) { %><a href="/admin">Gestión</a><form action="/logout" method="post" class="inline"><button class="link-button">Salir</button></form><% } else { %><a href="/login">Acceso</a><% } %></nav></header><main class="shell">

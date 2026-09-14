@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Instalar dependencias",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "npm install",
+			"type": "shell",
+			"command": "npm install",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}
