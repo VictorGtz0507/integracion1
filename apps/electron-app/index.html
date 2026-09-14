@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: http: https:; connect-src http: https:; style-src 'self'; script-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumen Libros</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-bar">
+    <div class="brand-mark" aria-hidden="true">L</div>
+    <div><p class="eyebrow">ARCHIVO EDITORIAL</p><h1>Lumen Libros</h1></div>
+    <button id="settingsButton" class="icon-button" type="button" aria-label="Configurar servicio" title="Configurar servicio">⚙</button>
+  </header>
+  <main class="content">
+    <section class="hero"><div><p class="eyebrow">CATÁLOGO DE LIBROS</p><h2>Encuentra tu<br><em>próxima lectura.</em></h2></div><button id="reloadButton" class="tonal-button" type="button">↻ Actualizar</button></section>
+    <div id="status" class="status" role="status"></div>
+    <section id="booksGrid" class="books-grid" aria-live="polite"></section>
+    <nav class="pagination" aria-label="Paginación"><button id="previousButton" class="page-button" type="button">← Anterior</button><span id="pageIndicator">Página 1</span><button id="nextButton" class="page-button" type="button">Siguiente →</button></nav>
+  </main>
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form id="settingsForm" method="dialog"><div class="dialog-heading"><div><p class="eyebrow">CONEXIÓN</p><h2>Fuente del catálogo</h2></div><button id="closeDialogButton" class="close-button" type="button" aria-label="Cerrar">×</button></div><p class="dialog-copy">Indica la IP o dominio y el endpoint que devuelve libros exclusivamente en XML.</p><label>IP o dominio<input id="serviceHost" name="serviceHost" type="text" placeholder="ej. 34.18.85.104:5001" autocomplete="off"></label><label>Endpoint<input id="serviceEndpoint" name="serviceEndpoint" type="text" placeholder="ej. /books" autocomplete="off"></label><p id="settingsError" class="form-error" role="alert"></p><div class="dialog-actions"><button id="clearSettingsButton" class="text-button" type="button">Limpiar</button><button class="primary-button" type="submit">Guardar y cargar</button></div></form>
+  </dialog>
+  <script src="renderer.js"></script>
+</body>
+</html>

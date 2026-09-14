@@ -1,0 +1,21 @@
+{
+  "name": "libreria-electron",
+  "version": "1.0.0",
+  "description": "Cliente de escritorio Electron para el catalogo XML de libros",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.lumen.libreria",
+    "productName": "Lumen Libros",
+    "files": ["main.js", "preload.js", "index.html", "renderer.js", "styles.css", "README.md"]
+  }
+}
