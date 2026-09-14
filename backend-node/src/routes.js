@@ -7,6 +7,7 @@ const catalog = require('./models/catalogModel');
 
 const upload = multer({ dest: path.join(__dirname, '..', 'uploads'), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)) });
 const requireAuth = (req, res, next) => req.session.user ? next() : res.redirect('/login');
+const requireAdmin = (req, res, next) => req.session.user?.role === 'admin' ? next() : res.status(403).render('error', { title: 'Acceso denegado', message: 'Esta operación requiere permisos de administrador.' });
 const flash = (req, message) => { req.session.notice = message; };
 
 function registerRoutes(app) {
@@ -29,8 +30,8 @@ function registerRoutes(app) {
   app.post('/concepts/:id/delete', requireAuth, (req, res) => { catalog.removeConcept(req.params.id); flash(req, 'Definición eliminada.'); res.redirect('/admin'); });
   app.post('/images', requireAuth, upload.single('image'), (req, res) => { if (!req.file) return res.redirect('/admin'); catalog.addImage({ ...req.body, filename: req.file.filename, originalname: req.file.originalname, mimetype: req.file.mimetype }); flash(req, 'Imagen subida.'); res.redirect('/admin'); });
   app.post('/images/:id/delete', requireAuth, (req, res) => { const image = catalog.images().find(item => item.id === Number(req.params.id)); if (image) { fs.rmSync(path.join(__dirname, '..', 'uploads', image.filename), { force: true }); catalog.removeImage(req.params.id); } flash(req, 'Imagen eliminada.'); res.redirect('/admin'); });
-  app.post('/users', requireAuth, (req, res) => { user.create(req.body); flash(req, 'Usuario creado.'); res.redirect('/admin'); });
-  app.post('/users/:id/edit', requireAuth, (req, res) => { user.update(req.params.id, req.body); flash(req, 'Usuario actualizado.'); res.redirect('/admin'); });
-  app.post('/users/:id/delete', requireAuth, (req, res) => { if (Number(req.params.id) !== req.session.user.id) user.remove(req.params.id); flash(req, 'Usuario eliminado.'); res.redirect('/admin'); });
+  app.post('/users', requireAdmin, (req, res) => { user.create(req.body); flash(req, 'Usuario creado.'); res.redirect('/admin'); });
+  app.post('/users/:id/edit', requireAdmin, (req, res) => { user.update(req.params.id, req.body); flash(req, 'Usuario actualizado.'); res.redirect('/admin'); });
+  app.post('/users/:id/delete', requireAdmin, (req, res) => { if (Number(req.params.id) !== req.session.user.id) user.remove(req.params.id); flash(req, 'Usuario eliminado.'); res.redirect('/admin'); });
 }
 module.exports = { registerRoutes };

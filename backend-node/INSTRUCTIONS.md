@@ -18,6 +18,11 @@ No existe una API REST, GraphQL, SOAP ni un intercambio de JSON/XML. Las operaci
 backend-node/
 |-- package.json              Dependencias y comandos npm
 |-- package-lock.json         Versiones concretas instaladas por npm
+|-- app.js                    Punto de entrada compatible con el curso
+|-- .env.example              Plantilla de variables de entorno
+|-- controllers/README.md     Convencion y responsabilidad de controladores
+|-- models/README.md          Convencion y responsabilidad de modelos
+|-- views/README.md           Convencion de vistas del curso
 |-- schema.sql                Esquema relacional aplicado al iniciar
 |-- INSTRUCTIONS.md           Este documento
 |-- data/library.sqlite       Base SQLite local (se crea automaticamente)
@@ -46,6 +51,8 @@ backend-node/
 - Expone el puerto definido por `PORT`, o el puerto `3000` por defecto.
 - Comparte con las vistas el usuario conectado y los mensajes de una sola solicitud.
 - Devuelve HTML para errores 404 y 500.
+
+`app.js` carga opcionalmente `.env` y delega el arranque a `src/server.js`. Esto permite ejecutar la aplicación incluso si todavía no se ha creado el archivo `.env`.
 
 ### `src/db.js`
 
@@ -83,15 +90,15 @@ Las eliminaciones de libros y entidades relacionadas respetan `ON DELETE CASCADE
 - Rutas `.../:id/delete`: bajas de entidades.
 - `POST /images`: recibe una imagen multipart de hasta 5 MB.
 
-Toda ruta administrativa usa `requireAuth`. La sesion guarda solamente `id`, `name` y `role`, nunca la contrasena.
+Toda ruta administrativa usa `requireAuth`. Las rutas de usuarios requieren adicionalmente rol `admin`. La sesion guarda solamente `id`, `name` y `role`, nunca la contrasena.
 
 ## 3. Configuracion actual
 
 El archivo `package.json` contiene los scripts:
 
 ```text
-npm start    node src/server.js
-npm run dev  node --watch src/server.js
+npm start    node app.js
+npm run dev  node --watch app.js
 ```
 
 Variables de entorno reconocidas:
@@ -102,6 +109,8 @@ Variables de entorno reconocidas:
 | `SESSION_SECRET` | Recomendado | Clave de ejemplo | Firma de la cookie de sesion |
 | `ADMIN_EMAIL` | No | `admin@libreria.local` | Correo de la cuenta inicial |
 | `ADMIN_PASSWORD` | No | `admin1234` | Contrasena de la cuenta inicial |
+
+Puedes crear `.env` copiando `.env.example`. El punto de entrada `app.js` lo carga automáticamente sin agregar credenciales al repositorio. Las operaciones para crear, editar y eliminar usuarios requieren una sesión con rol `admin`; las operaciones del catálogo requieren cualquier sesión autenticada.
 
 En produccion, define una clave aleatoria para `SESSION_SECRET` y una contrasena fuerte para el administrador. Las variables de administrador solo se usan al crear el primer usuario; cambiar el valor despues no modifica una cuenta ya existente.
 
