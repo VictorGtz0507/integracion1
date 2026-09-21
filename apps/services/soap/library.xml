@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<books>
+  <book id="1">
+    <title>The Pragmatic Programmer</title>
+    <isbn>9780201616224</isbn>
+    <author>Andrew Hunt</author>
+    <author>David Thomas</author>
+    <publicationYear>1999</publicationYear>
+    <genre>Technology</genre>
+    <price>39.99</price>
+    <stock>18</stock>
+    <format>Paperback</format>
+    <images>
+      <image>https://example.com/images/pragmatic-programmer-cover.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Software Craftsmanship</term>
+        <definition>Maintenance of code quality and professional practice.</definition>
+      </concept>
+    </concepts>
+  </book>
+</books>

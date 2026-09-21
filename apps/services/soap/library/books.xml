@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<books>
+  <book id="1">
+    <title>The Pragmatic Programmer</title>
+    <isbn>9780201616224</isbn>
+    <authors>
+      <author>Andrew Hunt</author>
+      <author>David Thomas</author>
+    </authors>
+    <publicationYear>1999</publicationYear>
+    <genre>Technology</genre>
+    <price>39.99</price>
+    <stock>18</stock>
+    <format>Paperback</format>
+    <images>
+      <image>https://example.com/images/pragmatic-programmer-cover.jpg</image>
+      <image>https://example.com/images/pragmatic-programmer-back.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Software Craftsmanship</term>
+        <definition>Practice of writing maintainable, readable, and well-structured code.</definition>
+      </concept>
+      <concept>
+        <term>Refactoring</term>
+        <definition>Improving existing code without changing its external behavior.</definition>
+      </concept>
+    </concepts>
+  </book>
+
+  <book id="2">
+    <title>Clean Code</title>
+    <isbn>9780132350884</isbn>
+    <authors>
+      <author>Robert C. Martin</author>
+    </authors>
+    <publicationYear>2008</publicationYear>
+    <genre>Software Engineering</genre>
+    <price>44.50</price>
+    <stock>12</stock>
+    <format>Hardcover</format>
+    <images>
+      <image>https://example.com/images/clean-code-cover.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Clean Architecture</term>
+        <definition>Design principles that keep business logic independent from frameworks and infrastructure.</definition>
+      </concept>
+      <concept>
+        <term>Meaningful Names</term>
+        <definition>Using clear and intentional names to improve code readability and maintenance.</definition>
+      </concept>
+    </concepts>
+  </book>
+
+  <book id="3">
+    <title>Atomic Habits</title>
+    <isbn>9780735211292</isbn>
+    <authors>
+      <author>James Clear</author>
+    </authors>
+    <publicationYear>2018</publicationYear>
+    <genre>Self-Improvement</genre>
+    <price>24.99</price>
+    <stock>25</stock>
+    <format>Paperback</format>
+    <images>
+      <image>https://example.com/images/atomic-habits-cover.jpg</image>
+      <image>https://example.com/images/atomic-habits-detail.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Habit Formation</term>
+        <definition>The process of creating automatic routines through repetition and environment design.</definition>
+      </concept>
+      <concept>
+        <term>Behavioral Design</term>
+        <definition>Structuring surroundings so desired actions become easier and more likely.</definition>
+      </concept>
+    </concepts>
+  </book>
+
+  <book id="4">
+    <title>Domain-Driven Design</title>
+    <isbn>9780321125217</isbn>
+    <authors>
+      <author>Eric Evans</author>
+    </authors>
+    <publicationYear>2003</publicationYear>
+    <genre>Architectural Design</genre>
+    <price>52.00</price>
+    <stock>9</stock>
+    <format>Hardcover</format>
+    <images>
+      <image>https://example.com/images/domain-driven-design-cover.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Ubiquitous Language</term>
+        <definition>A shared vocabulary between technical teams and business stakeholders.</definition>
+      </concept>
+      <concept>
+        <term>Bounded Context</term>
+        <definition>A boundary that defines a consistent model and clear responsibilities within a system.</definition>
+      </concept>
+    </concepts>
+  </book>
+
+  <book id="5">
+    <title>The Hobbit</title>
+    <isbn>9780261102217</isbn>
+    <authors>
+      <author>J.R.R. Tolkien</author>
+    </authors>
+    <publicationYear>1937</publicationYear>
+    <genre>Fantasy</genre>
+    <price>18.75</price>
+    <stock>30</stock>
+    <format>Paperback</format>
+    <images>
+      <image>https://example.com/images/the-hobbit-cover.jpg</image>
+    </images>
+    <concepts>
+      <concept>
+        <term>Quest</term>
+        <definition>A central journey in which a protagonist seeks a goal and faces trials along the way.</definition>
+      </concept>
+      <concept>
+        <term>Epic Adventure</term>
+        <definition>A long narrative centered on heroic action, danger, and discovery.</definition>
+      </concept>
+    </concepts>
+  </book>
+</books>
