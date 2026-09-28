@@ -1,6 +1,8 @@
 import os
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 
+import jwt
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
@@ -10,17 +12,39 @@ from psycopg2.extras import RealDictCursor
 load_dotenv()
 
 app = Flask(__name__)
+app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "library-login-secret")
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 
 def get_db_config():
     return {
-        "dbname": os.getenv("DB_NAME", "library"),
+        "dbname": os.getenv("DB_NAME", "library_db"),
         "user": os.getenv("DB_USER", "library_user"),
-        "password": os.getenv("DB_PASSWORD", "2710"),
+        "password": os.getenv("DB_PASSWORD", "666"),
         "host": os.getenv("DB_HOST", "localhost"),
         "port": os.getenv("DB_PORT", "5432"),
     }
+
+
+def get_token_from_request():
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return None
+    return header.split(" ", 1)[1].strip()
+
+
+def require_valid_jwt():
+    token = get_token_from_request()
+    if not token:
+        return False, {"error": "Missing Authorization Bearer token"}, 401
+    try:
+        payload = jwt.decode(token, app.config["JWT_SECRET"], algorithms=["HS256"])
+        request.jwt_payload = payload
+        return True, None, None
+    except jwt.ExpiredSignatureError:
+        return False, {"error": "Token expired"}, 401
+    except jwt.InvalidTokenError:
+        return False, {"error": "Invalid token"}, 401
 
 
 def get_connection():
@@ -151,11 +175,36 @@ def load_book_by_id(book_id):
             return serialize_book(row)
 
 
+def load_book_by_isbn(isbn):
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM books WHERE isbn = %s",
+                (isbn,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return None
+            return serialize_book(row)
+
+
+def jwt_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        ok, payload, status = require_valid_jwt()
+        if not ok:
+            return jsonify(payload), status
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "library-book-service"})
 
 
+@app.route("/api/books", methods=["GET"])
 @app.route("/books", methods=["GET"])
 def get_books():
     try:
@@ -170,6 +219,7 @@ def get_books():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/books/search", methods=["GET"])
 @app.route("/books/search", methods=["GET"])
 def search_books():
     filters = []
@@ -244,15 +294,21 @@ def search_books():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/books/<isbn>", methods=["GET"])
 @app.route("/books/<int:book_id>", methods=["GET"])
-def get_book(book_id):
-    book = load_book_by_id(book_id)
+def get_book(book_id=None, isbn=None):
+    if isbn is not None:
+        book = load_book_by_isbn(isbn)
+    else:
+        book = load_book_by_id(book_id)
     if book is None:
         return jsonify({"error": "Book not found"}), 404
     return jsonify(book), 200
 
 
+@app.route("/api/books", methods=["POST"])
 @app.route("/books", methods=["POST"])
+@jwt_required
 def create_book():
     payload = request.get_json(silent=True) or {}
     title = (payload.get("title") or payload.get("titulo") or "").strip()
@@ -336,7 +392,9 @@ def create_book():
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/books/<int:book_id>", methods=["PUT", "PATCH"])
 @app.route("/books/<int:book_id>", methods=["PUT", "PATCH"])
+@jwt_required
 def update_book(book_id):
     payload = request.get_json(silent=True) or {}
     if not payload:
@@ -437,7 +495,9 @@ def update_book(book_id):
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/books/<int:book_id>", methods=["DELETE"])
 @app.route("/books/<int:book_id>", methods=["DELETE"])
+@jwt_required
 def delete_book(book_id):
     try:
         with get_connection() as conn:

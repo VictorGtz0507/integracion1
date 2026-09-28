@@ -1,7 +1,9 @@
 import os
 import re
+from datetime import datetime, timedelta
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+import jwt
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, request, session
 from flask_cors import CORS
@@ -13,7 +15,19 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "library-login-secret")
+app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "library-login-secret")
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+
+def create_token(user_payload):
+    payload = {
+        "sub": str(user_payload["id"]),
+        "email": user_payload["email"],
+        "first_name": user_payload["first_name"],
+        "exp": datetime.utcnow() + timedelta(hours=12),
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(payload, app.config["JWT_SECRET"], algorithm="HS256")
 
 
 def get_db_config():
@@ -200,9 +214,16 @@ def login_user():
         session["first_name"] = user["first_name"]
         session["email"] = user["email"]
 
+        token = create_token({
+            "id": user["id"],
+            "email": user["email"],
+            "first_name": user["first_name"],
+        })
+
         payload = {
             "message": "Login successful",
             "authenticated": True,
+            "token": token,
             "user": {
                 "id": user["id"],
                 "first_name": user["first_name"],
