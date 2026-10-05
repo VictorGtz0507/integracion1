@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172a27">
+  <title>Redis / PostgreSQL | Library Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="/" aria-label="Library Lab inicio"><span class="mark">L</span><span>LIBRARY <b>LAB</b></span></a>
+    <div class="environment"><span class="live-dot"></span><span>COMPARACIÓN LOCAL</span><span class="divider"></span><span id="updatedAt">Sin medir</span></div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div>
+        <p class="eyebrow">LABORATORIO DE DATOS <span> / 01</span></p>
+        <h1>PostgreSQL <i>vs</i> Redis</h1>
+        <p class="lede">Mide lecturas reales del catálogo y compara latencia, tamaño almacenado y memoria usada en tus servicios.</p>
+      </div>
+      <div class="connection-panel" aria-live="polite">
+        <div class="connection-row"><span class="engine-icon pg-icon">P</span><span class="engine-name">PostgreSQL</span><span class="connection-state" id="pgState">Comprobando</span></div>
+        <div class="connection-row"><span class="engine-icon redis-icon">R</span><span class="engine-name">Redis</span><span class="connection-state" id="redisState">Comprobando</span></div>
+      </div>
+    </section>
+
+    <section class="control-strip" aria-label="Controles de benchmark">
+      <label for="iterations">Repeticiones <select id="iterations"><option value="10">10 pruebas</option><option value="20" selected>20 pruebas</option><option value="50">50 pruebas</option><option value="100">100 pruebas</option></select></label>
+      <div class="control-actions"><button class="button button-quiet" id="refreshButton" type="button" title="Actualizar estado">↻ <span>Actualizar estado</span></button><button class="button button-outline" id="clearCacheButton" type="button" title="Borrar caché Redis">⌫ <span>Vaciar caché</span></button><button class="button button-primary" id="runButton" type="button"><span class="play-icon">▶</span> Ejecutar prueba</button></div>
+    </section>
+
+    <div class="message" id="message" role="status" aria-live="polite">Conecta PostgreSQL y Redis para iniciar. La prueba ejecuta lecturas del catálogo; no modifica tus libros.</div>
+
+    <section class="results-grid" aria-label="Resultados de velocidad">
+      <article class="result-panel pg-panel">
+        <div class="panel-heading"><div><span class="overline">LECTURA DIRECTA</span><h2>PostgreSQL</h2></div><span class="panel-index">A</span></div>
+        <div class="primary-metric"><strong id="pgMedian">—</strong><span>ms mediana</span></div>
+        <div class="latency-track"><div class="latency-fill pg-fill" id="pgBar"></div></div>
+        <div class="metric-list"><div><span>Promedio</span><b id="pgAverage">—</b></div><div><span>P95</span><b id="pgP95">—</b></div><div><span>Operaciones / s</span><b id="pgOps">—</b></div></div>
+      </article>
+      <article class="result-panel redis-panel">
+        <div class="panel-heading"><div><span class="overline">LECTURA EN CACHÉ</span><h2>Redis</h2></div><span class="panel-index">B</span></div>
+        <div class="primary-metric"><strong id="redisMedian">—</strong><span>ms mediana</span></div>
+        <div class="latency-track"><div class="latency-fill redis-fill" id="redisBar"></div></div>
+        <div class="metric-list"><div><span>Promedio</span><b id="redisAverage">—</b></div><div><span>P95</span><b id="redisP95">—</b></div><div><span>Operaciones / s</span><b id="redisOps">—</b></div></div>
+      </article>
+      <article class="result-panel fill-panel">
+        <div class="panel-heading"><div><span class="overline">CACHÉ VACÍA</span><h2>Redis + PostgreSQL</h2></div><span class="panel-index">C</span></div>
+        <div class="primary-metric"><strong id="missMedian">—</strong><span>ms mediana</span></div>
+        <p class="fill-note">Lectura de PostgreSQL y escritura del resultado en Redis.</p>
+        <div class="metric-list"><div><span>Promedio</span><b id="missAverage">—</b></div><div><span>P95</span><b id="missP95">—</b></div><div><span>Pruebas miss</span><b id="missRuns">—</b></div></div>
+      </article>
+    </section>
+
+    <section class="lower-grid">
+      <article class="capacity-panel">
+        <div class="section-heading"><div><span class="overline">HUELLA DEL ALMACENAMIENTO</span><h2>Capacidad observada</h2></div><span class="subtle" id="bookCount">Catálogo: — libros</span></div>
+        <div class="storage-row"><div class="storage-label"><span class="engine-icon pg-icon">P</span><div><b>PostgreSQL</b><small>Tamaño total de la base de datos</small></div></div><strong id="pgSize">—</strong></div>
+        <div class="storage-row"><div class="storage-label"><span class="engine-icon redis-icon">R</span><div><b>Redis</b><small>Memoria usada por toda la instancia</small></div></div><strong id="redisMemory">—</strong></div>
+        <div class="storage-row storage-detail"><div class="storage-label"><span class="detail-mark">↳</span><div><b>Catálogo en caché</b><small>JSON del catálogo, sin overhead de Redis</small></div></div><strong id="payloadSize">—</strong></div>
+        <div class="capacity-foot"><span id="redisLimit">Límite Redis: sin configurar</span><span id="cacheState">Caché: vacía</span></div>
+      </article>
+
+      <article class="verdict-panel">
+        <span class="overline">LECTURA DE RESULTADOS</span>
+        <div class="speed-number"><strong id="speedup">—</strong><span id="speedLabel">veces más rápido en caché</span></div>
+        <p id="verdict">Ejecuta la prueba para comparar los mismos libros y comprobar que ambas respuestas coincidan.</p>
+        <div class="match-indicator"><span class="match-dot" id="matchDot"></span><span id="matchStatus">Datos aún sin comparar</span></div>
+      </article>
+    </section>
+
+    <section class="preview-panel">
+      <div class="section-heading"><div><span class="overline">MUESTRA DEL CONJUNTO</span><h2>Libros comparados</h2></div><span class="subtle">Primeros seis registros</span></div>
+      <div class="table-wrap"><table><thead><tr><th>Libro</th><th>ISBN</th><th>Autores</th><th>Stock</th><th>Precio</th></tr></thead><tbody id="bookRows"><tr><td colspan="5" class="empty-row">Aún no hay resultados de la prueba.</td></tr></tbody></table></div>
+    </section>
+
+    <footer><p>La comparación es una lectura secuencial en esta máquina. PostgreSQL conserva los datos originales; Redis almacena una copia temporal serializada del catálogo.</p><span>LAB / 01</span></footer>
+  </main>
+</body>
+</html>
