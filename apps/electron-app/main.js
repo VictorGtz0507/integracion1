@@ -18,14 +18,47 @@ function createWindow() {
   window.loadFile('index.html');
 }
 
-ipcMain.handle('fetch-books-xml', async (event, url) => {
-  if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) throw new Error('La URL del servicio no es válida.');
-  const response = await fetch(url, { headers: { Accept: 'application/xml, text/xml' } });
+function parseHttpUrl(value) {
+  let url;
+  try { url = new URL(value); } catch { throw new Error('La URL del servicio no es válida.'); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Solo se permiten URLs HTTP o HTTPS.');
+  return url;
+}
+
+ipcMain.handle('open-service', async (event, value) => {
+  const url = parseHttpUrl(value);
+  await shell.openExternal(url.toString());
+  return true;
+});
+
+ipcMain.handle('check-service', async (event, id, value) => {
+  const base = parseHttpUrl(value);
+  base.pathname = `${base.pathname.replace(/\/$/, '')}/health`;
+  base.search = '';
+  base.hash = '';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(base, { headers: { Accept: 'application/json, application/xml, text/xml' }, signal: controller.signal });
+    return { id, state: response.status === 200 ? 'online' : 'degraded', status: response.status };
+  } catch {
+    return { id, state: 'offline', status: null };
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+ipcMain.handle('fetch-books', async (event, value) => {
+  const url = parseHttpUrl(value);
+  const response = await fetch(url, { headers: { Accept: 'application/json, application/xml, text/xml' } });
   if (!response.ok) throw new Error(`El servicio respondió con HTTP ${response.status}.`);
   const contentType = response.headers.get('content-type') || '';
   const text = await response.text();
-  if (contentType.includes('json') || /^\s*[\[{]/.test(text)) throw new Error('El servicio respondió JSON. Esta aplicación acepta únicamente XML.');
-  return text;
+  if (contentType.includes('json') || /^\s*[\[{]/.test(text)) {
+    try { return { format: 'json', data: JSON.parse(text) }; }
+    catch { throw new Error('El servicio respondió JSON inválido.'); }
+  }
+  return { format: 'xml', data: text };
 });
 
 app.whenReady().then(() => {

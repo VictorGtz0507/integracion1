@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lumen Libros</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="services.css">
 </head>
 <body>
   <header class="app-bar">
@@ -13,6 +14,7 @@
     <div><p class="eyebrow">ARCHIVO EDITORIAL</p><h1>Lumen Libros</h1></div>
     <button id="settingsButton" class="icon-button" type="button" aria-label="Configurar servicio" title="Configurar servicio">⚙</button>
   </header>
+  <nav id="servicesNav" class="services-nav" aria-label="Microservicios"></nav>
   <main class="content">
     <section class="hero"><div><p class="eyebrow">CATÁLOGO DE LIBROS</p><h2>Encuentra tu<br><em>próxima lectura.</em></h2></div><button id="reloadButton" class="tonal-button" type="button">↻ Actualizar</button></section>
     <div id="status" class="status" role="status"></div>
@@ -20,7 +22,14 @@
     <nav class="pagination" aria-label="Paginación"><button id="previousButton" class="page-button" type="button">← Anterior</button><span id="pageIndicator">Página 1</span><button id="nextButton" class="page-button" type="button">Siguiente →</button></nav>
   </main>
   <dialog id="settingsDialog" class="settings-dialog">
-    <form id="settingsForm" method="dialog"><div class="dialog-heading"><div><p class="eyebrow">CONEXIÓN</p><h2>Fuente del catálogo</h2></div><button id="closeDialogButton" class="close-button" type="button" aria-label="Cerrar">×</button></div><p class="dialog-copy">Indica la IP o dominio y el endpoint que devuelve libros exclusivamente en XML.</p><label>IP o dominio<input id="serviceHost" name="serviceHost" type="text" placeholder="ej. 34.18.85.104:5001" autocomplete="off"></label><label>Endpoint<input id="serviceEndpoint" name="serviceEndpoint" type="text" placeholder="ej. /books" autocomplete="off"></label><p id="settingsError" class="form-error" role="alert"></p><div class="dialog-actions"><button id="clearSettingsButton" class="text-button" type="button">Limpiar</button><button class="primary-button" type="submit">Guardar y cargar</button></div></form>
+    <form id="settingsForm" method="dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">CONEXIONES</p><h2>Microservicios</h2></div><button id="closeDialogButton" class="close-button" type="button" aria-label="Cerrar">×</button></div>
+      <p class="dialog-copy">Edita la URL base de cada servicio. Los valores locales usan HTTP porque Flask no tiene TLS configurado aquí; en producción usa HTTPS.</p>
+      <div id="serviceUrlFields" class="service-url-fields"></div>
+      <label>Ruta del catálogo<input id="catalogEndpoint" name="catalogEndpoint" type="text" placeholder="/api/books" autocomplete="off"></label>
+      <p id="settingsError" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button id="resetSettingsButton" class="text-button" type="button">Restaurar valores</button><button class="primary-button" type="submit">Guardar conexiones</button></div>
+    </form>
   </dialog>
   <script src="renderer.js"></script>
 </body>

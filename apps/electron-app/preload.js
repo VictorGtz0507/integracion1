@@ -1,6 +1,7 @@
-const { contextBridge, ipcRenderer, shell } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktop', {
-  openExternal: (url) => shell.openExternal(url),
-  fetchBooksXml: (url) => ipcRenderer.invoke('fetch-books-xml', url)
+  openService: (url) => ipcRenderer.invoke('open-service', url),
+  checkService: (id, url) => ipcRenderer.invoke('check-service', id, url),
+  fetchBooks: (url) => ipcRenderer.invoke('fetch-books', url)
 });

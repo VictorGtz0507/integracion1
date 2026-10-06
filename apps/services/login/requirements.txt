@@ -3,3 +3,5 @@ Flask-Cors==4.0.1
 psycopg[binary]==3.3.6
 PyJWT==2.10.1
 python-dotenv==1.0.1
+Flask-Session==0.8.0
+redis==5.2.1

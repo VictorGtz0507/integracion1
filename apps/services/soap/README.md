@@ -33,10 +33,10 @@ This microservice exposes CRUD endpoints for the library books catalog using the
    python app.py
    ```
 
-The service will run on:
+The service listens on port 5001 by default (Login uses port 5000):
 
 ```text
-http://localhost:5000
+http://localhost:5001
 ```
 
 ## Endpoints
@@ -60,6 +60,8 @@ http://localhost:5000
 
 ### Create a book
 - `POST /books`
+
+All book writes require an administrator JWT in `Authorization: Bearer <JWT>`. Public GET catalog routes remain available without a token; Redis cache failures fall back to PostgreSQL for these reads.
 
 ### Update a book
 - `PUT /books/<id>`

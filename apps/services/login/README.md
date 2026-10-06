@@ -27,7 +27,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The app listens on port 5000 by default.
+The app listens on port 5000 by default. It stores server-side sessions and one-time refresh tokens in the shared password-protected Redis instance.
 
 ## Endpoints
 
@@ -37,11 +37,16 @@ The app listens on port 5000 by default.
 ### Login
 - POST /login
 
+Successful login returns an HS256 access JWT with `user_id`, `role_id`, `role`, and `jti`; the access token expires after 20 minutes. Store the returned refresh token securely and call `POST /refresh` before expiry to rotate it.
+
 ### Logout
 - POST /logout
 
 ### Session status
 - GET /session
+
+### Refresh access token
+- POST /refresh with `{"refresh_token":"..."}`
 
 ### Service health
 - GET /health
@@ -65,5 +70,6 @@ POST /login?format=xml
 ## Notes
 
 - Passwords are never stored in plaintext.
-- The service creates a Flask session to maintain an authenticated user.
+- Flask sessions and refresh token records are stored in Redis with a seven-day TTL. Logout removes the refresh record, destroys the session, and revokes the active access token in Redis.
+- The same `JWT_SECRET_KEY` must be configured in Login and every service that accepts its tokens.
 - The service uses the same PostgreSQL database as the library project without modifying the existing tables used by other services.

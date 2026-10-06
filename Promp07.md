@@ -1,0 +1,1 @@
+necesito comparar redis y postgress con mis datos y quiero ver los resultados. en una carpeta nueva crea una app que conecte a mi postgress y use redis tambien donde pueda comparar ambos metodos de uso de la informacion y su velocidad y capacidad.

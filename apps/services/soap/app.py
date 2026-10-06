@@ -1,19 +1,79 @@
 import os
+import hashlib
+import json
+import sys
+import time
 from decimal import Decimal, InvalidOperation
 from functools import wraps
+from pathlib import Path
 
-import jwt
 import psycopg2
+import redis
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
 from psycopg2.extras import RealDictCursor
 
 load_dotenv()
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from shared.jwt_auth import verify_request_token
+from shared.redis_support import RedisUnavailable, get_redis, invalidate_book_catalog_cache, metrics_snapshot, record_metric, require_redis
 
 app = Flask(__name__)
-app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "library-login-secret")
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY")
+BOOKS_CACHE_TTL_SECONDS = int(os.getenv("BOOKS_CACHE_TTL_SECONDS", "60"))
+if os.getenv("APP_ENV", "development").lower() == "production" and not os.getenv("CORS_ORIGINS"):
+    raise RuntimeError("CORS_ORIGINS must be configured in production")
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                origin.strip()
+                for origin in (
+                    os.getenv("CORS_ORIGINS")
+                    or (
+                        ""
+                        if os.getenv("APP_ENV", "development").lower() == "production"
+                        else "http://localhost:3000,http://127.0.0.1:3000"
+                    )
+                ).split(",")
+                if origin.strip()
+            ]
+        }
+    },
+    supports_credentials=True,
+)
+
+
+def cache_key_for_list(filters=None):
+    normalized = json.dumps(filters or {}, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"books:list:{digest}"
+
+
+def read_cached_json(key):
+    started = time.perf_counter()
+    try:
+        value = get_redis().get(key)
+        record_metric("books.cache_hit" if value is not None else "books.cache_miss", started)
+        return current_app.json.loads(value) if value is not None else None
+    except (redis.RedisError, RedisUnavailable):
+        record_metric("books.cache_error", started, failed=True)
+        return None
+
+
+def write_cached_json(key, value):
+    started = time.perf_counter()
+    try:
+        get_redis().setex(key, BOOKS_CACHE_TTL_SECONDS, current_app.json.dumps(value))
+        record_metric("books.cache_write", started)
+    except (redis.RedisError, RedisUnavailable):
+        record_metric("books.cache_error", started, failed=True)
+
+
+def invalidate_book_caches():
+    invalidate_book_catalog_cache()
 
 
 def get_db_config():
@@ -34,17 +94,11 @@ def get_token_from_request():
 
 
 def require_valid_jwt():
-    token = get_token_from_request()
-    if not token:
-        return False, {"error": "Missing Authorization Bearer token"}, 401
-    try:
-        payload = jwt.decode(token, app.config["JWT_SECRET"], algorithms=["HS256"])
-        request.jwt_payload = payload
-        return True, None, None
-    except jwt.ExpiredSignatureError:
-        return False, {"error": "Token expired"}, 401
-    except jwt.InvalidTokenError:
-        return False, {"error": "Invalid token"}, 401
+    payload, error, status = verify_request_token()
+    if error:
+        return False, error, status
+    request.jwt_payload = payload
+    return True, None, None
 
 
 def get_connection():
@@ -188,25 +242,50 @@ def load_book_by_isbn(isbn):
             return serialize_book(row)
 
 
-def jwt_required(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        ok, payload, status = require_valid_jwt()
-        if not ok:
-            return jsonify(payload), status
-        return fn(*args, **kwargs)
+def jwt_required(roles=None):
+    required_roles = set(roles or [])
 
-    return wrapper
+    def decorate(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            ok, payload, status = require_valid_jwt()
+            if not ok:
+                return jsonify(payload), status
+            if required_roles and request.jwt_payload.get("role") not in required_roles:
+                return jsonify({"error": "Insufficient role"}), 403
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorate
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "service": "library-book-service"})
+    try:
+        require_redis()
+        redis_status = "connected"
+    except RedisUnavailable:
+        redis_status = "unavailable"
+    return jsonify({
+        "status": "ok" if redis_status == "connected" else "degraded",
+        "service": "library-book-service",
+        "redis": redis_status,
+    }), (200 if redis_status == "connected" else 503)
+
+
+@app.route("/metrics", methods=["GET"])
+def metrics():
+    return jsonify(metrics_snapshot())
 
 
 @app.route("/api/books", methods=["GET"])
 @app.route("/books", methods=["GET"])
 def get_books():
+    key = cache_key_for_list()
+    cached = read_cached_json(key)
+    if cached is not None:
+        return jsonify(cached), 200
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -214,6 +293,7 @@ def get_books():
                 rows = cur.fetchall()
 
         books = [serialize_book(row) for row in rows]
+        write_cached_json(key, books)
         return jsonify(books), 200
     except Exception as exc:  # pragma: no cover - defensive handling
         return jsonify({"error": str(exc)}), 500
@@ -222,6 +302,12 @@ def get_books():
 @app.route("/api/books/search", methods=["GET"])
 @app.route("/books/search", methods=["GET"])
 def search_books():
+    filters_snapshot = request.args.to_dict(flat=False)
+    cache_key = cache_key_for_list(filters_snapshot)
+    cached = read_cached_json(cache_key)
+    if cached is not None:
+        return jsonify(cached), 200
+
     filters = []
     values = []
 
@@ -289,6 +375,7 @@ def search_books():
                     rows = cur.fetchall()
 
         books = [serialize_book(row) for row in rows]
+        write_cached_json(cache_key, books)
         return jsonify(books), 200
     except Exception as exc:  # pragma: no cover - defensive handling
         return jsonify({"error": str(exc)}), 500
@@ -298,7 +385,13 @@ def search_books():
 @app.route("/books/<int:book_id>", methods=["GET"])
 def get_book(book_id=None, isbn=None):
     if isbn is not None:
+        cache_key = f"books:{isbn}"
+        cached = read_cached_json(cache_key)
+        if cached is not None:
+            return jsonify(cached), 200
         book = load_book_by_isbn(isbn)
+        if book is not None:
+            write_cached_json(cache_key, book)
     else:
         book = load_book_by_id(book_id)
     if book is None:
@@ -308,7 +401,7 @@ def get_book(book_id=None, isbn=None):
 
 @app.route("/api/books", methods=["POST"])
 @app.route("/books", methods=["POST"])
-@jwt_required
+@jwt_required(roles={"admin"})
 def create_book():
     payload = request.get_json(silent=True) or {}
     title = (payload.get("title") or payload.get("titulo") or "").strip()
@@ -384,6 +477,7 @@ def create_book():
                     )
 
             conn.commit()
+            invalidate_book_caches()
             created = load_book_by_id(book_id)
             return jsonify(created), 201
     except ValueError as exc:
@@ -394,7 +488,7 @@ def create_book():
 
 @app.route("/api/books/<int:book_id>", methods=["PUT", "PATCH"])
 @app.route("/books/<int:book_id>", methods=["PUT", "PATCH"])
-@jwt_required
+@jwt_required(roles={"admin"})
 def update_book(book_id):
     payload = request.get_json(silent=True) or {}
     if not payload:
@@ -487,6 +581,7 @@ def update_book(book_id):
                             )
 
             conn.commit()
+            invalidate_book_caches()
             updated = load_book_by_id(book_id)
             return jsonify(updated), 200
     except ValueError as exc:
@@ -497,13 +592,14 @@ def update_book(book_id):
 
 @app.route("/api/books/<int:book_id>", methods=["DELETE"])
 @app.route("/books/<int:book_id>", methods=["DELETE"])
-@jwt_required
+@jwt_required(roles={"admin"})
 def delete_book(book_id):
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM books WHERE id = %s", (book_id,))
             conn.commit()
+        invalidate_book_caches()
         return jsonify({"deleted": True, "book_id": book_id}), 200
     except Exception as exc:  # pragma: no cover - defensive handling
         return jsonify({"error": str(exc)}), 500
@@ -520,4 +616,4 @@ def method_not_allowed(error):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5001")), debug=False)

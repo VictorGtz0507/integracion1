@@ -1,30 +1,37 @@
 # Lumen Libros - Electron
 
-Cliente de escritorio Electron para consultar el catálogo de libros de un microservicio que responde exclusivamente XML.
+Cliente de escritorio Electron para consultar el catálogo y abrir los seis microservicios de Library.
 
-## Estado de la URL del microservicio
+## Microservicios y configuración
 
-La URL del prompt se deja vacía intencionalmente. No hay una URL activa preconfigurada porque el home/endpoint definitivo será entregado posteriormente. La aplicación arranca mostrando el mensaje para configurar el servicio.
+La barra superior tiene un botón por servicio. Al pulsarlo, abre esa URL en el navegador del sistema. Los indicadores consultan `/health` cada 15 segundos: verde significa HTTP 200, amarillo que el servicio respondió con otro código HTTP (por ejemplo, degradado), y rojo que no se pudo conectar.
 
-La dirección se configura desde el botón de engranaje. Se guardan la IP o dominio y el endpoint en `localStorage` del equipo. Ejemplo cuando se disponga de los datos definitivos:
+El engrane permite modificar las seis URL base y la ruta del catálogo. Los valores locales son:
 
 ```text
-IP o dominio: 34.18.85.104:5001
-Endpoint: /books
+Login:   http://localhost:5000
+Books:   http://localhost:5001
+Users:   http://localhost:5002
+Authors: http://localhost:5003
+Pedidos: http://localhost:5004
+Pagos:   http://localhost:5005
 ```
 
-El cliente construye `http://34.18.85.104:5001/books`. También acepta que el campo de IP ya incluya `http://` o `https://`.
+Usa HTTP para los servicios Flask locales, que no tienen TLS habilitado. Para acceder a una VM, sustituye `localhost` por su IP o dominio. En producción configura HTTPS en un proxy TLS y guarda las URL `https://` correspondientes. El catálogo se consulta por defecto desde Books en `/api/books`; se aceptan respuestas JSON y XML.
 
 ## Funcionalidades
 
 - Aplicación de escritorio basada en Electron.
-- Consulta del catálogo usando una petición al microservicio y respuesta XML.
-- Rechazo de respuestas JSON, XML inválido y URLs incompletas.
+- Consulta del catálogo mediante JSON o XML.
+- Seis botones de navegación con estado de conexión.
+- Comprobación periódica de salud mediante `/health`.
+- Configuración editable de las seis URL y la ruta del catálogo.
+- Validación de enlaces HTTP/HTTPS.
 - Tarjetas con foto, título, autores, ISBN y precio.
 - Seis tarjetas por página al mostrar resultados.
 - Paginación anterior/siguiente.
 - Botón de actualización del catálogo.
-- Modal para configurar IP/dominio y endpoint.
+- Modal para configurar los microservicios.
 - Persistencia de la configuración mediante `localStorage`.
 - Diseño responsive con tarjetas, colores, tipografía y componentes de estilo Material.
 - `contextIsolation`, `sandbox` y `nodeIntegration: false` activados.
@@ -40,6 +47,7 @@ electron-app/
 |-- index.html         Estructura de la interfaz
 |-- renderer.js        Estado, XML, tarjetas, modal y paginación
 |-- styles.css         Diseño responsive
+|-- services.css      Barra de microservicios y semáforos
 |-- .env.example       Referencia de configuración futura
 `-- README.md          Esta guía
 ```
@@ -95,7 +103,7 @@ También puedes usar:
 npm run dev
 ```
 
-Se abrirá una ventana de escritorio. Presiona el botón de configuración, escribe la IP y el endpoint reales, guarda y pulsa `↻ Actualizar`.
+Se abrirá una ventana de escritorio. En Configuración puedes cambiar las URL; al usar una VM, reemplaza `localhost` por la IP alcanzable de esa VM.
 
 ## Formato XML esperado
 
@@ -139,7 +147,7 @@ npm run dist
 
 - **No aparece ningún libro:** abre Configuración y confirma IP, protocolo y endpoint.
 - **HTTP 404:** el endpoint no es correcto; solicita la ruta real del microservicio.
-- **Respuesta JSON:** el servicio no cumple el contrato XML requerido.
+- **Catálogo sin libros:** confirma que Books devuelve JSON con una lista en `/api/books` o XML compatible en la ruta configurada.
 - **XML inválido:** revisa caracteres especiales y etiquetas sin cerrar.
 - **No cargan las fotos:** comprueba que la URL de cada imagen sea accesible y que el servidor permita el recurso.
 - **El puerto no responde:** verifica firewall, red de la VM y que el microservicio esté iniciado.
