@@ -12,15 +12,54 @@
   <header class="app-bar">
     <div class="brand-mark" aria-hidden="true">L</div>
     <div><p class="eyebrow">ARCHIVO EDITORIAL</p><h1>Lumen Libros</h1></div>
-    <button id="settingsButton" class="icon-button" type="button" aria-label="Configurar servicio" title="Configurar servicio">⚙</button>
+    <div class="top-actions">
+      <button id="catalogViewButton" class="nav-toggle active" type="button">Catálogo</button>
+      <button id="assistantViewButton" class="nav-toggle" type="button">Asistente Ollama</button>
+      <button id="settingsButton" class="icon-button" type="button" aria-label="Configurar servicio" title="Configurar servicio">⚙</button>
+    </div>
   </header>
   <nav id="servicesNav" class="services-nav" aria-label="Microservicios"></nav>
-  <main class="content">
-    <section class="hero"><div><p class="eyebrow">CATÁLOGO DE LIBROS</p><h2>Encuentra tu<br><em>próxima lectura.</em></h2></div><button id="reloadButton" class="tonal-button" type="button">↻ Actualizar</button></section>
-    <div id="status" class="status" role="status"></div>
-    <section id="booksGrid" class="books-grid" aria-live="polite"></section>
-    <nav class="pagination" aria-label="Paginación"><button id="previousButton" class="page-button" type="button">← Anterior</button><span id="pageIndicator">Página 1</span><button id="nextButton" class="page-button" type="button">Siguiente →</button></nav>
+
+  <main class="app-views">
+    <section id="catalogView" class="view-panel active">
+      <section class="hero"><div><p class="eyebrow">CATÁLOGO DE LIBROS</p><h2>Encuentra tu<br><em>próxima lectura.</em></h2></div><button id="reloadButton" class="tonal-button" type="button">↻ Actualizar</button></section>
+      <div id="status" class="status" role="status"></div>
+      <section id="booksGrid" class="books-grid" aria-live="polite"></section>
+      <nav class="pagination" aria-label="Paginación"><button id="previousButton" class="page-button" type="button">← Anterior</button><span id="pageIndicator">Página 1</span><button id="nextButton" class="page-button" type="button">Siguiente →</button></nav>
+    </section>
+
+    <section id="assistantView" class="view-panel assistant-view hidden">
+      <div class="assistant-shell">
+        <div class="assistant-panel">
+          <div class="assistant-header">
+            <div>
+              <p class="eyebrow">INTELIGENCIA LOCAL</p>
+              <h2>Asistente de biblioteca</h2>
+            </div>
+          </div>
+
+          <div class="assistant-config">
+            <label>
+              URL Ollama
+              <input id="ollamaUrl" type="url" value="http://localhost:11434/api/chat" autocomplete="off" />
+            </label>
+            <label>
+              Modelo
+              <input id="ollamaModel" type="text" value="deepseek-coder" autocomplete="off" />
+            </label>
+          </div>
+
+          <div id="assistantMessages" class="assistant-messages" aria-live="polite"></div>
+
+          <form id="assistantForm" class="assistant-form">
+            <textarea id="assistantInput" rows="4" placeholder="Pregunta por un libro de tu biblioteca..." aria-label="Pregunta para Ollama"></textarea>
+            <button class="primary-button" type="submit">Enviar</button>
+          </form>
+        </div>
+      </div>
+    </section>
   </main>
+
   <dialog id="settingsDialog" class="settings-dialog">
     <form id="settingsForm" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">CONEXIONES</p><h2>Microservicios</h2></div><button id="closeDialogButton" class="close-button" type="button" aria-label="Cerrar">×</button></div>

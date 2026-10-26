@@ -61,6 +61,35 @@ ipcMain.handle('fetch-books', async (event, value) => {
   return { format: 'xml', data: text };
 });
 
+ipcMain.handle('ollama-chat', async (_event, payload) => {
+  const resolvedUrl = payload?.url || 'http://localhost:11434/api/chat';
+  const model = payload?.model || 'deepseek-coder';
+  const messages = Array.isArray(payload?.messages) ? payload.messages : [{ role: 'user', content: payload?.prompt || '' }];
+
+  const response = await fetch(resolvedUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages,
+      stream: false
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama respondió con HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  const text = data?.message?.content || data?.content || data?.response || data?.choices?.[0]?.message?.content || '';
+
+  if (!text || !String(text).trim()) {
+    throw new Error('Ollama respondió sin contenido útil.');
+  }
+
+  return text;
+});
+
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {

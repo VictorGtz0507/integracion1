@@ -167,19 +167,19 @@ def _load_book_relations(book_id):
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT a.name AS author_name FROM authors a INNER JOIN book_authors ba ON ba.author_id = a.id WHERE ba.book_id = %s ORDER BY a.name",
+                "SELECT CONCAT_WS(' ', a.nombre, a.apellido) AS author_name FROM autor a INNER JOIN libro_autor ba ON ba.id_autor = a.id_autor WHERE ba.id_libro = %s ORDER BY a.nombre, a.apellido",
                 (book_id,),
             )
             authors = [row["author_name"] for row in cur.fetchall()]
 
             cur.execute(
-                "SELECT c.name AS category_name FROM categories c INNER JOIN book_categories bc ON bc.category_id = c.id WHERE bc.book_id = %s ORDER BY c.name",
+                "SELECT c.nombre AS category_name FROM categoria c INNER JOIN libro_categoria lc ON lc.id_categoria = c.id_categoria WHERE lc.id_libro = %s ORDER BY c.nombre",
                 (book_id,),
             )
             categories = [row["category_name"] for row in cur.fetchall()]
 
             cur.execute(
-                "SELECT term, definition FROM concepts WHERE book_id = %s ORDER BY term",
+                "SELECT c.termino AS term, lc.definicion AS definition FROM concepto c INNER JOIN libro_concepto lc ON lc.id_concepto = c.id_concepto WHERE lc.id_libro = %s ORDER BY c.termino",
                 (book_id,),
             )
             concepts = [
@@ -188,20 +188,32 @@ def _load_book_relations(book_id):
             ]
 
             cur.execute(
-                "SELECT id, filename, original_name, mime_type FROM images WHERE book_id = %s ORDER BY id",
+                "SELECT id_imagen AS id, url, descripcion AS description, es_portada AS is_cover FROM imagen WHERE id_libro = %s ORDER BY es_portada DESC, id_imagen",
                 (book_id,),
             )
             images = [
                 {
                     "id": row["id"],
-                    "filename": row["filename"],
-                    "original_name": row["original_name"],
-                    "mime_type": row["mime_type"],
+                    "url": row["url"],
+                    "description": row["description"],
+                    "is_cover": row["is_cover"],
                 }
                 for row in cur.fetchall()
             ]
 
     return {"authors": authors, "categories": categories, "concepts": concepts, "images": images}
+
+
+BOOK_COLUMNS = """
+    l.id_libro AS id,
+    l.titulo AS title,
+    l.isbn,
+    l.anio_publicacion AS published_year,
+    ROUND(l.precio * 100)::integer AS price_cents,
+    l.stock,
+    l.sinopsis AS description,
+    l.fecha_creacion AS created_at
+"""
 
 
 def serialize_book(book_row):
@@ -220,7 +232,7 @@ def load_book_by_id(book_id):
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM books WHERE id = %s",
+                f"SELECT {BOOK_COLUMNS} FROM libro l WHERE l.id_libro = %s",
                 (book_id,),
             )
             row = cur.fetchone()
@@ -233,7 +245,7 @@ def load_book_by_isbn(isbn):
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM books WHERE isbn = %s",
+                f"SELECT {BOOK_COLUMNS} FROM libro l WHERE l.isbn = %s",
                 (isbn,),
             )
             row = cur.fetchone()
@@ -289,7 +301,7 @@ def get_books():
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT * FROM books ORDER BY id")
+                cur.execute(f"SELECT {BOOK_COLUMNS} FROM libro l ORDER BY l.id_libro")
                 rows = cur.fetchall()
 
         books = [serialize_book(row) for row in rows]
@@ -322,55 +334,56 @@ def search_books():
     published_year = request.args.get("published_year")
 
     if title:
-        filters.append("b.title ILIKE %s")
+        filters.append("l.titulo ILIKE %s")
         values.append(f"%{title}%")
     if isbn:
-        filters.append("b.isbn ILIKE %s")
+        filters.append("l.isbn ILIKE %s")
         values.append(f"%{isbn}%")
     if published_year:
-        filters.append("b.published_year = %s")
+        filters.append("l.anio_publicacion = %s")
         values.append(published_year)
     if min_price:
-        filters.append("b.price_cents >= %s")
+        filters.append("ROUND(l.precio * 100)::integer >= %s")
         values.append(decimal_to_cents(min_price))
     if max_price:
-        filters.append("b.price_cents <= %s")
+        filters.append("ROUND(l.precio * 100)::integer <= %s")
         values.append(decimal_to_cents(max_price))
     if min_stock:
-        filters.append("b.stock >= %s")
+        filters.append("l.stock >= %s")
         values.append(int(min_stock))
     if max_stock:
-        filters.append("b.stock <= %s")
+        filters.append("l.stock <= %s")
         values.append(int(max_stock))
 
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 if author or category:
-                    base_sql = """
-                        SELECT DISTINCT b.*
-                        FROM books b
-                        LEFT JOIN book_authors ba ON ba.book_id = b.id
-                        LEFT JOIN authors a ON a.id = ba.author_id
-                        LEFT JOIN book_categories bc ON bc.book_id = b.id
-                        LEFT JOIN categories c ON c.id = bc.category_id
+                    matching_ids_sql = """
+                        SELECT DISTINCT l.id_libro
+                        FROM libro l
+                        LEFT JOIN libro_autor la ON la.id_libro = l.id_libro
+                        LEFT JOIN autor a ON a.id_autor = la.id_autor
+                        LEFT JOIN libro_categoria lc ON lc.id_libro = l.id_libro
+                        LEFT JOIN categoria c ON c.id_categoria = lc.id_categoria
                         WHERE 1 = 1
                     """
                     if author:
-                        filters.append("a.name ILIKE %s")
+                        filters.append("CONCAT_WS(' ', a.nombre, a.apellido) ILIKE %s")
                         values.append(f"%{author}%")
                     if category:
-                        filters.append("c.name ILIKE %s")
+                        filters.append("c.nombre ILIKE %s")
                         values.append(f"%{category}%")
 
-                    sql = base_sql + (" AND " + " AND ".join(filters) if filters else "") + " ORDER BY b.id"
+                    matching_ids_sql += " AND " + " AND ".join(filters) if filters else ""
+                    sql = f"SELECT {BOOK_COLUMNS} FROM libro l WHERE l.id_libro IN ({matching_ids_sql}) ORDER BY l.id_libro"
                     cur.execute(sql, tuple(values))
                     rows = cur.fetchall()
                 else:
-                    sql = "SELECT b.* FROM books b WHERE 1 = 1"
+                    sql = f"SELECT {BOOK_COLUMNS} FROM libro l WHERE 1 = 1"
                     if filters:
                         sql += " AND " + " AND ".join(filters)
-                    sql += " ORDER BY b.id"
+                    sql += " ORDER BY l.id_libro"
                     cur.execute(sql, tuple(values))
                     rows = cur.fetchall()
 

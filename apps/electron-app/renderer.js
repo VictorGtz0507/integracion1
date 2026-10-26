@@ -9,12 +9,16 @@ const services = [
   { id: 'orders', name: 'Pedidos', port: 5004 },
   { id: 'payments', name: 'Pagos', port: 5005 }
 ];
-const state = { books: [], page: 1, config: loadConfig(), serviceStates: {} };
+const state = { books: [], page: 1, config: loadConfig(), serviceStates: {}, activeView: 'catalog', assistantMessages: [] };
 const elements = {
   grid: document.querySelector('#booksGrid'), status: document.querySelector('#status'), page: document.querySelector('#pageIndicator'),
   previous: document.querySelector('#previousButton'), next: document.querySelector('#nextButton'), dialog: document.querySelector('#settingsDialog'),
   form: document.querySelector('#settingsForm'), serviceFields: document.querySelector('#serviceUrlFields'),
-  catalogEndpoint: document.querySelector('#catalogEndpoint'), nav: document.querySelector('#servicesNav'), error: document.querySelector('#settingsError')
+  catalogEndpoint: document.querySelector('#catalogEndpoint'), nav: document.querySelector('#servicesNav'), error: document.querySelector('#settingsError'),
+  catalogView: document.querySelector('#catalogView'), assistantView: document.querySelector('#assistantView'),
+  catalogButton: document.querySelector('#catalogViewButton'), assistantButton: document.querySelector('#assistantViewButton'),
+  assistantForm: document.querySelector('#assistantForm'), assistantInput: document.querySelector('#assistantInput'),
+  assistantMessages: document.querySelector('#assistantMessages'), ollamaUrl: document.querySelector('#ollamaUrl'), ollamaModel: document.querySelector('#ollamaModel')
 };
 
 function defaultConfig() {
@@ -111,6 +115,7 @@ async function loadBooks() {
   state.books = []; state.page = 1; render(); showStatus('Cargando catálogo…');
   try {
     const response = await window.desktop.fetchBooks(url);
+    if (response?.error) throw new Error(response.error);
     if (response.format === 'json') state.books = normalizeJsonBooks(response.data);
     else {
       const xml = new DOMParser().parseFromString(response.data, 'application/xml');
@@ -141,6 +146,77 @@ function render() {
   state.books.slice((state.page - 1) * pageSize, state.page * pageSize).forEach((book, index) => elements.grid.append(createCard(book, index)));
   elements.page.textContent = `Página ${state.page} de ${totalPages}`; elements.previous.disabled = state.page <= 1; elements.next.disabled = state.page >= totalPages;
 }
+
+function setActiveView(viewName) {
+  state.activeView = viewName;
+  const catalogActive = viewName === 'catalog';
+  elements.catalogView.classList.toggle('hidden', !catalogActive);
+  elements.assistantView.classList.toggle('hidden', catalogActive);
+  elements.catalogButton.classList.toggle('active', catalogActive);
+  elements.assistantButton.classList.toggle('active', !catalogActive);
+}
+
+function buildLibraryContext() {
+  if (!state.books.length) {
+    return 'Biblioteca no cargada aún. El usuario puede consultar primero el catálogo de libros.';
+  }
+  return state.books.slice(0, 40).map((book, index) => {
+    const title = book.title || 'Sin título';
+    const author = book.authors || 'Autor no indicado';
+    const isbn = book.isbn || 'ISBN no disponible';
+    return `${index + 1}. ${title} — ${author} — ISBN: ${isbn}`;
+  }).join('\n');
+}
+
+function addAssistantMessage(role, content) {
+  state.assistantMessages.push({ role, content });
+  const wrapper = document.createElement('div');
+  wrapper.className = `assistant-message ${role}`;
+  const label = document.createElement('strong');
+  label.textContent = role === 'assistant' ? 'DeepSeek' : 'Tú';
+  const text = document.createElement('p');
+  text.textContent = content;
+  wrapper.append(label, text);
+  elements.assistantMessages.appendChild(wrapper);
+  elements.assistantMessages.scrollTop = elements.assistantMessages.scrollHeight;
+}
+
+async function sendToAssistant(event) {
+  event.preventDefault();
+  const question = elements.assistantInput.value.trim();
+  if (!question) return;
+
+  const libraryContext = buildLibraryContext();
+  const prompt = `Eres un asistente amable especializado en la biblioteca del usuario. Usa el catálogo proporcionado para responder preguntas sobre los libros disponibles y no inventes datos bibliográficos. Si el usuario pregunta por un libro que no aparece en el catálogo, no rechaces la conversación ni te limites a decir que no puedes hablar de él: aclara que no está en la biblioteca y ofrece uno o dos títulos del catálogo como alternativas. Recomienda alternativas solo cuando puedas justificarlo por la información disponible; si no hay una opción claramente relacionada, pregunta qué género o tema le interesa y ofrece ayudarle a buscar entre los libros disponibles. Puedes mencionar el título que preguntó el usuario únicamente para aclarar que no está en el catálogo, sin inventar detalles sobre ese libro.\n\nCatálogo disponible:\n${libraryContext}\n\nPregunta del usuario:\n${question}`;
+
+  addAssistantMessage('user', question);
+  elements.assistantInput.value = '';
+  addAssistantMessage('assistant', 'Pensando…');
+
+  try {
+    const response = await window.desktop.ollamaChat({
+      url: elements.ollamaUrl.value.trim() || 'http://localhost:11434/api/chat',
+      model: elements.ollamaModel.value.trim() || 'deepseek-coder',
+      messages: [
+        { role: 'system', content: 'Ayuda al usuario a explorar su biblioteca con un tono amable. No inventes datos sobre libros ni autores. Si pregunta por un título que no aparece en el catálogo, dile claramente que no está en su biblioteca y ofrece uno o dos títulos disponibles como alternativas, solo si la información del catálogo permite recomendarlos. No rechaces hablar del título preguntado: puedes nombrarlo para aclarar su ausencia, pero no inventes detalles. Si no hay una alternativa clara, pregunta qué tema o género busca y ofrece ayudarle a encontrar algo entre los libros disponibles.' },
+        { role: 'user', content: prompt }
+      ]
+    });
+
+    const lastMessage = elements.assistantMessages.lastElementChild;
+    if (lastMessage) {
+      lastMessage.className = 'assistant-message assistant';
+      lastMessage.querySelector('p').textContent = response;
+    }
+  } catch (error) {
+    const lastMessage = elements.assistantMessages.lastElementChild;
+    if (lastMessage) {
+      lastMessage.className = 'assistant-message assistant error';
+      lastMessage.querySelector('p').textContent = error.message || 'No se pudo conectar con Ollama.';
+    }
+  }
+}
+
 function createCard(book, index) {
   const card = document.createElement('article'); card.className = `book-card tone-${index % 4}`;
   const cover = document.createElement('div'); cover.className = 'book-cover';
@@ -171,4 +247,11 @@ elements.form.addEventListener('submit', event => {
 document.querySelector('#reloadButton').addEventListener('click', loadBooks);
 elements.previous.addEventListener('click', () => { if (state.page > 1) { state.page -= 1; render(); } });
 elements.next.addEventListener('click', () => { if (state.page < Math.ceil(state.books.length / pageSize)) { state.page += 1; render(); } });
-createServiceControls(); render(); loadBooks(); checkServices(); setInterval(checkServices, 15000);
+elements.catalogButton.addEventListener('click', () => setActiveView('catalog'));
+elements.assistantButton.addEventListener('click', () => setActiveView('assistant'));
+elements.assistantForm.addEventListener('submit', sendToAssistant);
+
+createServiceControls();
+setActiveView('catalog');
+addAssistantMessage('assistant', 'Estoy listo para ayudarte a conversar con tu biblioteca. Consulta primero el catálogo o pregunta por un libro que esté en la biblioteca.');
+render(); loadBooks(); checkServices(); setInterval(checkServices, 15000);
