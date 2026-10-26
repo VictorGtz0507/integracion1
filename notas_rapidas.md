@@ -8,7 +8,7 @@
 5.- docker images
 
 1.- ejecutar Docker Desktop
-2.- crear y ejecutar ollama con almacenamiento persistente 
+2.- crear y ejecutar ollama con almacenamiento persistente
     docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama/ollama:latest
 3.- verificar que el contenedor este ejecutandose en docker ps
 4.- utilizando curl o su navegador vamos a verificar si ya podemos el api rest curl http://localhost:11434/pi/tags
@@ -21,4 +21,4 @@
 
 
 1. curl https://localhost:11434/api/chat -d "{\"model\":\"deepseek-coder\",\"message\":[{\"role\":\"user\",\"content\":\"hola, que es un arreglo en programacion?\"}],\"stream\":false}"
-1. curl https://localhost:11434/api/chat -d "{\"model\":\"deepseek-coder\","message":[{\"role\":\"user\",\"content\":\"hola, que es un arreglo en programacion?"\}],\"stream":false}" 
+1. curl https://localhost:11434/api/chat -d "{\"model\":\"deepseek-coder\","message":[{\"role\":\"user\",\"content\":\"hola, que es un arreglo en programacion?"\}],\"stream":false}"
